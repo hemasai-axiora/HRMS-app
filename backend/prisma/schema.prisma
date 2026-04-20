@@ -1,0 +1,479 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+model User {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  password    String
+  name        String
+  role        Role         @default(EMPLOYEE)
+  isActive    Boolean      @default(true)
+  permissions Permission[] @relation("UserPermissions")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("users")
+}
+
+enum Module {
+  USERS
+  EMPLOYEES
+  ATTENDANCE
+  LEAVE
+  PAYROLL
+  REPORTS
+  SETTINGS
+}
+
+enum Action {
+  VIEW
+  CREATE
+  EDIT
+  DELETE
+  EXPORT
+}
+
+model Permission {
+  id        String   @id @default(uuid())
+  module   Module
+  action   Action
+  isGranted Boolean @default(false)
+  user      User    @relation("UserPermissions", fields: [userId], references: [id])
+  userId    String
+
+  @@unique([userId, module, action])
+  @@map("permissions")
+}
+
+model Department {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  description String?
+  isActive    Boolean   @default(true)
+  employees   Employee[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("departments")
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+}
+
+model Employee {
+  id              String        @id @default(uuid())
+  employeeId      String        @unique
+  firstName      String
+  lastName       String
+  email         String        @unique
+  phone         String?
+  dateOfBirth   DateTime?
+  gender        String?
+  address       String?
+  nationality  String?
+  
+  jobTitle      String
+  department   Department   @relation(fields: [departmentId], references: [id])
+  departmentId String
+  employmentType EmploymentType @default(FULL_TIME)
+  joinDate    DateTime     @default(now())
+  salary      Decimal     @db.Decimal(12, 2)
+  
+  manager      Employee?   @relation("ManagerRelation", fields: [managerId], references: [id])
+  managerId    String?
+  subordinates Employee[]  @relation("ManagerRelation")
+  
+  documents   Document[]
+  attendances Attendance[]
+  leaves     Leave[]
+  leaveQuotas LeaveQuota[]
+  salaryStructure SalaryStructure?
+  payrollRecords PayrollRecord[]
+  managedProjects Project[] @relation("ProjectManager")
+  projectResources ProjectResource[] @relation("EmployeeResources")
+  tasks Task[]
+  timesheets Timesheet[]
+  isActive    Boolean    @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@unique([email])
+  @@map("employees")
+}
+
+enum DocumentType {
+  ID_PROOF
+  ADDRESS_PROOF
+  EDUCATION_CERTIFICATE
+  EXPERIENCE_LETTER
+  PHOTO
+  CONTRACT
+  OTHER
+}
+
+model Document {
+  id          String      @id @default(uuid())
+  name        String
+  type        DocumentType
+  fileName    String
+  filePath    String
+  fileSize   Int?
+  mimeType   String?
+  employee   Employee   @relation(fields: [employeeId], references: [id])
+  employeeId String
+  uploadedBy String?
+  createdAt  DateTime    @default(now())
+
+  @@map("documents")
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  ON_LEAVE
+}
+
+model Attendance {
+  id          String          @id @default(uuid())
+  employee    Employee        @relation(fields: [employeeId], references: [id])
+  employeeId  String
+  date        DateTime        @default(now())
+  checkIn     DateTime?
+  checkOut    DateTime?
+  status      AttendanceStatus @default(PRESENT)
+  lateMinutes Int?
+  workHours  Float?
+  notes      String?
+  markedBy   String?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@unique([employeeId, date])
+  @@map("attendances")
+}
+
+model AttendanceSettings {
+  id              String   @id @default(uuid())
+  checkInStartTime String   @default("09:00")
+  checkInEndTime   String   @default("09:30")
+  checkOutTime     String   @default("18:00")
+  lateThreshold    Int      @default(30)
+  halfDayThreshold Int      @default(4)
+  isActive        Boolean  @default(true)
+
+  @@map("attendance_settings")
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  CASUAL
+  MATERNITY
+  PATERNITY
+  UNPAID
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model Leave {
+  id          String      @id @default(uuid())
+  employee    Employee    @relation(fields: [employeeId], references: [id])
+  employeeId  String
+  leaveType   LeaveType
+  startDate  DateTime
+  endDate    DateTime
+  days       Float
+  reason     String?
+  status     LeaveStatus @default(PENDING)
+  approvedBy String?
+  approvedAt DateTime?
+  rejectReason String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@map("leaves")
+}
+
+model LeaveQuota {
+  id          String   @id @default(uuid())
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  employeeId  String
+  year       Int
+  leaveType  LeaveType
+  quota      Float
+  used       Float    @default(0)
+
+  @@unique([employeeId, year, leaveType])
+  @@map("leave_quotas")
+}
+
+enum PayrollStatus {
+  DRAFT
+  PROCESSED
+  PAID
+}
+
+model SalaryStructure {
+  id            String  @id @default(uuid())
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  employeeId    String
+  basicSalary   Float
+  hra          Float   @default(0)
+  da           Float   @default(0)
+  conveyence   Float   @default(0)
+  medical      Float   @default(0)
+  specialAllowance Float @default(0)
+  otherAllowance Float  @default(0)
+  
+  pfEnabled    Boolean  @default(true)
+  pfRate       Float    @default(0.12)
+  tdsEnabled   Boolean  @default(true)
+  insurance   Float    @default(0)
+  otherDeduction Float  @default(0)
+  
+  effectiveFrom DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([employeeId])
+  @@map("salary_structures")
+}
+
+model PayrollSettings {
+  id              String   @id @default(uuid())
+  pfRate          Float    @default(0.12)
+  maxPf           Float    @default(2160)
+  gratuityRate    Float    @default(0.0481)
+  tdsEnabled     Boolean  @default(true)
+  epfEnabled     Boolean  @default(true)
+  epsEnabled      Boolean  @default(true)
+  adminPf        Float    @default(0)
+  isActive       Boolean  @default(true)
+
+  @@map("payroll_settings")
+}
+
+model PayrollRun {
+  id          String        @id @default(uuid())
+  month       Int
+  year        Int
+  status      PayrollStatus @default(DRAFT)
+  totalAmount Float?
+  employeeCount Int?
+  processedBy String?
+  processedAt DateTime?
+  createdAt  DateTime    @default(now())
+
+  @@unique([month, year])
+  @@map("payroll_runs")
+}
+
+model PayrollRecord {
+  id          String      @id @default(uuid())
+  payrollRun   PayrollRun   @relation(fields: [payrollRunId], references: [id])
+  payrollRunId String
+  employee   Employee    @relation(fields: [employeeId], references: [id])
+  employeeId  String
+  
+  basicSalary Float
+  hra         Float
+  da          Float
+  conveyance  Float
+  medical    Float
+  specialAllowance Float
+  otherAllowance Float
+  
+  grossEarnings Float
+  pf          Float
+  tax         Float
+  insurance  Float
+  otherDeductions Float
+  totalDeductions Float
+  
+  netSalary   Float
+  
+  workDays   Int
+  daysWorked Int
+  leaves    Float
+  deductions Float
+  
+  status    String   @default("PROCESSED")
+  createdAt  DateTime @default(now())
+
+  @@unique([payrollRunId, employeeId])
+  @@map("payroll_records")
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+model Project {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  startDate   DateTime?
+  deadline    DateTime?
+  budget      Float         @default(0)
+  status      ProjectStatus @default(PLANNING)
+  
+  manager     Employee      @relation("ProjectManager", fields: [managerId], references: [id])
+  managerId   String
+  resources  ProjectResource[]
+  
+  tasks       Task[]
+  expenses   ProjectExpense[]
+  
+  isActive   Boolean       @default(true)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@map("projects")
+}
+
+model ProjectResource {
+  id          String   @id @default(uuid())
+  project    Project  @relation(fields: [projectId], references: [id])
+  projectId  String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  employeeId String
+  joinedAt   DateTime @default(now())
+
+  @@unique([projectId, employeeId])
+  @@map("project_resources")
+}
+
+model ProjectExpense {
+  id          String   @id @default(uuid())
+  project    Project  @relation(fields: [projectId], references: [id])
+  projectId  String
+  description String
+  amount     Float
+  date       DateTime @default(now())
+  createdBy  String?
+  createdAt  DateTime @default(now())
+
+  @@map("project_expenses")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  AWAITING_APPROVAL
+  REWORK
+  COMPLETED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Task {
+  id             String      @id @default(uuid())
+  title          String
+  description    String?
+  project        Project?    @relation(fields: [projectId], references: [id])
+  projectId      String?
+  assignee      Employee    @relation(fields: [assigneeId], references: [id])
+  assigneeId    String
+  
+  estimatedHours Float?
+  actualHours    Float       @default(0)
+  deadline      DateTime?
+  priority     TaskPriority @default(MEDIUM)
+  status       TaskStatus   @default(TODO)
+  
+  completedAt    DateTime?
+  createdBy    String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("tasks")
+}
+
+model Timesheet {
+  id          String   @id @default(uuid())
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  employeeId  String
+  task        Task?     @relation(fields: [taskId], references: [id])
+  taskId     String?
+  date        DateTime
+  hoursWorked Float
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@unique([employeeId, taskId, date])
+  @@map("timesheets")
+}
+
+enum OvertimeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Overtime {
+  id           String        @id @default(uuid())
+  employee     Employee      @relation(fields: [employeeId], references: [id])
+  employeeId   String
+  date         DateTime
+  regularHours Float         @default(8)
+  otHours      Float
+  reason      String?
+  status      OvertimeStatus @default(PENDING)
+  
+  approvedBy   String?
+  approvedAt  DateTime?
+  rejectReason String?
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("overtime_requests")
+}
+
+model PayrollSettings {
+  id              String   @id @default(uuid())
+  pfRate          Float    @default(0.12)
+  maxPf           Float    @default(2160)
+  gratuityRate    Float    @default(0.0481)
+  tdsEnabled     Boolean  @default(true)
+  epfEnabled     Boolean  @default(true)
+  epsEnabled      Boolean  @default(true)
+  otMultiplier   Float    @default(1.5)
+  standardHours  Float    @default(176)
+  isActive       Boolean  @default(true)
+
+  @@map("payroll_settings")
+}
