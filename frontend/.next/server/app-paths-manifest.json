@@ -1,0 +1,19 @@
+{
+  "/_not-found": "app/_not-found.js",
+  "/dashboard/employee/page": "app/dashboard/employee/page.js",
+  "/dashboard/admin/page": "app/dashboard/admin/page.js",
+  "/attendance/page": "app/attendance/page.js",
+  "/api/auth/route": "app/api/auth/route.js",
+  "/dashboard/manager/page": "app/dashboard/manager/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/project/[id]/page": "app/dashboard/project/[id]/page.js",
+  "/overtime/page": "app/overtime/page.js",
+  "/page": "app/page.js",
+  "/leave/page": "app/leave/page.js",
+  "/employees/page": "app/employees/page.js",
+  "/payroll/page": "app/payroll/page.js",
+  "/permissions/page": "app/permissions/page.js",
+  "/payslips/page": "app/payslips/page.js",
+  "/timesheet/page": "app/timesheet/page.js",
+  "/projects/page": "app/projects/page.js"
+}

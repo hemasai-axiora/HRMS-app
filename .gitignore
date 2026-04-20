@@ -7,7 +7,7 @@ backend/node_modules/
 .env
  
 # Build folders
-.next/
+
 dist/
 build/
  
